@@ -34,4 +34,4 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Validate JavaScript
         if: steps.source.outputs.ready == 'true'
-        run: node --check search-worker.js && node --check pwa.js && node --check sw.js && node tests/test_search_worker.cjs
+        run: node --check research-tools.js && node tests/test_research_tools.cjs && node --check search-worker.js && node --check pwa.js && node --check sw.js && node tests/test_search_worker.cjs

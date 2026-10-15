@@ -1,0 +1,152 @@
+name: Publish audio meetings
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-audio-meetings.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-audio-meetings-2026-10-15
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Verify and publish original MP3 recordings
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import concurrent.futures
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          RECORDINGS = json.loads('[{"sequence":1,"title":"لقاء الحنانة الأول","filename":"01 - لقاء الحنانة الأول.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/لقاء-الحنانة-ج1.mp3","bytes":85864513,"sha256":"a763572d08f791274f4487f530db4f0cca1429b08dc6e3b00f7cd883edd5383e"},{"sequence":2,"title":"لقاء الحنانة الثاني","filename":"02 - لقاء الحنانة الثاني.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/لقاء-الحنانة-ج2.mp3","bytes":64826976,"sha256":"3849c479a78df385daa3cff1f7e9a4f48da9ec0f064de69e9faa7b5c7ecc0a73"},{"sequence":3,"title":"لقاء الحنانة الثالث","filename":"03 - لقاء الحنانة الثالث.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/لقاء-الحنانة-ج3.mp3","bytes":76619629,"sha256":"d2f33c5bec2afee07e83eee67695def9f97a330b49af88bb57fe0a2975710ad1"},{"sequence":4,"title":"لقاء الحنانة الرابع","filename":"04 - لقاء الحنانة الرابع.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/لقاء-الحنانة-ج4.mp3","bytes":93228631,"sha256":"b5fc5fc36b528e5494419c60a40040c6bb27d41e9ff0c83c6019ea455059a82c"},{"sequence":5,"title":"لقاء الحنانة الخامس","filename":"05 - لقاء الحنانة الخامس.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/لقاء-الحنانة-ج5.mp3","bytes":73328880,"sha256":"9883ba63e95c6aa0830621f79ecd985150266b194f615438c87bad66b579f4e2"},{"sequence":6,"title":"لقاء أئمة الجمعة","filename":"06 - لقاء أئمة الجمعة.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/لقاء-أئمة-الجمعة.mp3","bytes":57276929,"sha256":"f2eb8421aca80bdea40947e828fa9c25dd03b0808e9bd1249daebe3f43ce7af1"},{"sequence":7,"title":"لقاء خاص","filename":"07 - لقاء خاص.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/اللقاء-الخاص.mp3","bytes":56265617,"sha256":"7a830a60b63dffc5c3d4994abd1de5b2aee0c31de658d767d8676e3649490e7a"},{"sequence":8,"title":"لقاء السيد الشهيد مع المتولين على المدارس الدينية","filename":"08 - لقاء السيد الشهيد مع المتولين على المدارس الدينية.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/لقاء-السيد-الشهيد-قدس-سره-مع-المتولين-على-المدارس-الدينية.mp3","bytes":44989696,"sha256":"4a56450ca289e45938f2968780f74ac766f2259928a3f7bcdd44cb50a16c88d1"},{"sequence":9,"title":"اللقاء الصوتي الأول للسيد الشهيد محمد الصدر","filename":"09 - اللقاء الصوتي الأول للسيد الشهيد محمد الصدر.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/لقاء-الشيخ-ستار-البهادلي-بالسيد-الشهيد-قدس-سره-1.mp3","bytes":50434869,"sha256":"3c58fc9b2900b01f8deb46d8ce65796fe37aaacd826dd586201f79fccbf34834"},{"sequence":10,"title":"اللقاء الصوتي الثاني للسيد الشهيد محمد الصدر","filename":"10 - اللقاء الصوتي الثاني للسيد الشهيد محمد الصدر.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/لقاء-الشيخ-ستار-البهادلي-بالسيد-الشهيد-قدس-سره-2.mp3","bytes":33940527,"sha256":"bdb78fe1fa096e64197f37bfa3b9b1219f28ee2996751804f2dbad0aaeedc3cf"},{"sequence":11,"title":"اللقاء الصوتي الثالث للسيد الشهيد محمد الصدر","filename":"11 - اللقاء الصوتي الثالث للسيد الشهيد محمد الصدر.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/لقاء-الشيخ-ستار-البهادلي-بالسيد-الشهيد-قدس-سره-3.mp3","bytes":51937014,"sha256":"a49fde75cfd797aaf1b6a51b455136c37c9e94d59b9c372863d3235a53fb486e"},{"sequence":12,"title":"اللقاء الصوتي الرابع للسيد الشهيد محمد الصدر","filename":"12 - اللقاء الصوتي الرابع للسيد الشهيد محمد الصدر.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/لقاء-الشيخ-ستار-البهادلي-بالسيد-الشهيد-قدس-سره-4.mp3","bytes":59253807,"sha256":"7c53db357a055e76324f3dcea4b068045bcdffd97e39130aed664f9f432acb88"},{"sequence":13,"title":"اللقاء الصوتي الخامس للسيد الشهيد محمد الصدر","filename":"13 - اللقاء الصوتي الخامس للسيد الشهيد محمد الصدر.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/لقاء-الشيخ-ستار-البهادلي-بالسيد-الشهيد-قدس-سره-5.mp3","bytes":59317755,"sha256":"104924696c5340d021d858d2ff54a0597fd28b3887ff777a9fcaf57aae00edb6"},{"sequence":14,"title":"اللقاء الصوتي السادس للسيد الشهيد محمد الصدر","filename":"14 - اللقاء الصوتي السادس للسيد الشهيد محمد الصدر.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/لقاء-الشيخ-ستار-البهادلي-بالسيد-الشهيد-قدس-سره-6.mp3","bytes":89844658,"sha256":"e6d9c749b0ab4ccf07f118cfc4c3cad76dae5e5daa5f609354c7077915c39030"},{"sequence":15,"title":"اللقاء الصوتي السابع للسيد الشهيد محمد الصدر","filename":"15 - اللقاء الصوتي السابع للسيد الشهيد محمد الصدر.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/لقاء-الشيخ-ستار-البهادلي-بالسيد-الشهيد-قدس-سره7.mp3","bytes":56384100,"sha256":"7cc3dec87f43d7f0aefdda7c163385b46610583a76bed3c4071e5c9d0ddca64f"},{"sequence":16,"title":"لقاء مجلة الهدى بالسيد الشهيد محمد الصدر","filename":"16 - لقاء مجلة الهدى بالسيد الشهيد محمد الصدر.mp3","source_url":"https://alsaydalsadr.app/wp-content/uploads/2024/11/لقاء-مجلة-الهدى-بالسيد-الشهيد-قدس-سره.mp3","bytes":53620973,"sha256":"8cc171400238d404e4418365e145e8ded2ecaa60d1c2d3b38c9451e6013b9d3a"}]')
+          REPOSITORY = os.environ['GITHUB_REPOSITORY']
+          assert REPOSITORY == 'sjadmsave/mnah'
+          API = 'https://api.github.com/repos/' + REPOSITORY
+          TAG = 'audio-meetings-2026-10-15'
+          TOKEN = os.environ['GH_TOKEN']
+          DIRECTORY = Path(os.environ['RUNNER_TEMP']) / 'audio-meetings'
+          DIRECTORY.mkdir(exist_ok=True)
+
+          def api(method, url, payload=None, data=None, content_type='application/json'):
+              headers = {
+                  'Accept': 'application/vnd.github+json',
+                  'Authorization': 'Bearer ' + TOKEN,
+                  'X-GitHub-Api-Version': '2026-03-10',
+                  'User-Agent': 'mnah-audio-publisher',
+              }
+              if payload is not None:
+                  data = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+              if data is not None:
+                  headers['Content-Type'] = content_type
+              request = urllib.request.Request(url, data=data, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(request, timeout=300) as response:
+                      body = response.read()
+                      return json.loads(body) if body else None
+              except urllib.error.HTTPError as error:
+                  message = error.read().decode('utf-8', errors='replace')[:2000]
+                  raise RuntimeError(f'GitHub HTTP {error.code}: {message}') from None
+
+          def encoded_url(url):
+              parts = urllib.parse.urlsplit(url)
+              return urllib.parse.urlunsplit((parts.scheme, parts.netloc, urllib.parse.quote(parts.path, safe='/%:@-._~'), parts.query, ''))
+
+          def download(record):
+              destination = DIRECTORY / record['filename']
+              temporary = destination.with_suffix('.mp3.part')
+              for attempt in range(4):
+                  try:
+                      request = urllib.request.Request(encoded_url(record['source_url']), headers={
+                          'User-Agent': 'Mozilla/5.0', 'Accept-Encoding': 'identity',
+                      })
+                      digest = hashlib.sha256()
+                      count = 0
+                      with urllib.request.urlopen(request, timeout=90) as response, temporary.open('wb') as file:
+                          if response.status != 200:
+                              raise RuntimeError(f'Unexpected source HTTP {response.status}')
+                          if response.headers.get('Content-Length'):
+                              assert int(response.headers['Content-Length']) == record['bytes'], 'Original size changed'
+                          while True:
+                              chunk = response.read(1024 * 1024)
+                              if not chunk:
+                                  break
+                              file.write(chunk)
+                              digest.update(chunk)
+                              count += len(chunk)
+                      assert count == record['bytes'], 'Original download incomplete'
+                      assert digest.hexdigest() == record['sha256'], 'Original SHA-256 mismatch'
+                      temporary.replace(destination)
+                      print(f"Verified original {record['sequence']:02d}: {record['title']}", flush=True)
+                      return destination
+                  except (OSError, urllib.error.URLError, AssertionError, RuntimeError):
+                      if attempt == 3:
+                          raise
+                      time.sleep(2 ** (attempt + 1))
+
+          with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+              paths = list(executor.map(download, RECORDINGS))
+
+          releases = api('GET', API + '/releases?per_page=100')
+          matching = [release for release in releases if release['tag_name'] == TAG]
+          assert len(matching) <= 1
+          intro = 'اللقاءات الصوتية الستة عشر للسيد الشهيد محمد الصدر، بالملفات الأصلية وتسلسل المصدر.\n\nالمصدر: https://alsaydalsadr.app/meetings-and-dialogues2'
+          if matching:
+              release = matching[0]
+          else:
+              release = api('POST', API + '/releases', payload={
+                  'tag_name': TAG, 'target_commitish': 'main',
+                  'name': 'اللقاءات الصوتية للسيد الشهيد محمد الصدر',
+                  'body': intro, 'draft': True, 'prerelease': False,
+                  'make_latest': 'false',
+              })
+          release_id = release['id']
+          assert release['draft'], 'This one-time publisher only updates its unpublished draft'
+          upload_url = release['upload_url'].split('{', 1)[0]
+          existing = api('GET', API + f'/releases/{release_id}/assets?per_page=100')
+          uploaded = []
+          for record, path in zip(RECORDINGS, paths):
+              label = f"{record['sequence']:02d} - {record['title']}"
+              candidates = [asset for asset in existing if asset.get('label') == label]
+              assert len(candidates) <= 1, 'Duplicate draft asset label'
+              if candidates:
+                  asset = candidates[0]
+              else:
+                  query = urllib.parse.urlencode({'name': record['filename'], 'label': label})
+                  asset = api('POST', upload_url + '?' + query, data=path.read_bytes(), content_type='audio/mpeg')
+              assert asset['state'] == 'uploaded', 'Incomplete release asset'
+              assert asset['size'] == record['bytes'], 'Release asset size mismatch'
+              assert asset.get('digest') == 'sha256:' + record['sha256'], 'Release asset SHA-256 mismatch'
+              uploaded.append(dict(sequence=record['sequence'], title=record['title'], name=asset['name'], label=label, url=asset['browser_download_url'], bytes=asset['size'], sha256=record['sha256']))
+              print(f"Uploaded and verified {record['sequence']:02d}: {asset['name']}", flush=True)
+
+          assets = api('GET', API + f'/releases/{release_id}/assets?per_page=100')
+          assert len(assets) == 16 and all(asset['state'] == 'uploaded' for asset in assets)
+          rows = ['| التسلسل | اسم اللقاء | التنزيل المباشر |', '|---|---|---|']
+          for item in uploaded:
+              rows.append(f"| {item['sequence']:02d} | {item['title']} | [MP3]({item['url']}) |")
+          body = intro + '\n\n' + '\n'.join(rows)
+          published = api('PATCH', API + f'/releases/{release_id}', payload={'body': body, 'draft': False, 'make_latest': 'false'})
+          assert published['draft'] is False and len(published['assets']) == 16
+          (DIRECTORY / 'published_audio_links.json').write_text(json.dumps(uploaded, ensure_ascii=False, indent=2), encoding='utf-8')
+          summary_path = os.environ.get('GITHUB_STEP_SUMMARY')
+          if summary_path:
+              with open(summary_path, 'a', encoding='utf-8') as summary:
+                  summary.write('# تم نشر اللقاءات الصوتية\n\n' + published['html_url'] + '\n\n' + '\n'.join(rows) + '\n')
+          print(json.dumps({'release': published['html_url'], 'files': len(uploaded), 'all_sha256_verified': True}, ensure_ascii=False), flush=True)
+          PY

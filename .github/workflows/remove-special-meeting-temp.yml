@@ -1,0 +1,38 @@
+name: Remove special meeting asset (temporary)
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/remove-special-meeting-temp.yml
+permissions:
+  contents: write
+jobs:
+  remove:
+    if: github.repository == 'sjadmsave/mnah'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Remove 07 recording and update release list
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh api repos/sjadmsave/mnah/releases/assets/644333068 >/dev/null 2>&1; then
+            gh api --method DELETE repos/sjadmsave/mnah/releases/assets/644333068
+          fi
+          gh api repos/sjadmsave/mnah/releases/413985539 --jq .body > /tmp/meeting-release.md
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('/tmp/meeting-release.md')
+          text=p.read_text(encoding='utf-8')
+          text=text.replace('الستة عشر', 'الخمسة عشر')
+          text,n=re.subn(r'(?m)^\| 07 \| لقاء خاص \|.*\n', '', text)
+          assert n==1, f'Special meeting row count: {n}'
+          for number in range(8,17):
+              text,n=re.subn(rf'(?m)^\| {number:02d} \|',f'| {number-1:02d} |',text)
+              assert n==1, f'Missing row: {number}'
+          text=text.replace('untagged-758b927e11b67260b47c','audio-meetings-2026-10-15')
+          p.write_text(text,encoding='utf-8')
+          PY
+          gh api --method PATCH repos/sjadmsave/mnah/releases/413985539 -F body=@/tmp/meeting-release.md >/dev/null
